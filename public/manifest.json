@@ -1,0 +1,17 @@
+{
+    "name": "DnD (Do and Done)",
+    "short_name": "DnD",
+    "start_url": "/",
+    "background_color": "#6777ef",
+    "description": "",
+    "display": "standalone",
+    "theme_color": "#6777ef",
+    "icons": [
+        {
+            "src": "logo.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}

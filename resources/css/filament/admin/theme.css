@@ -1,0 +1,109 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@import '../../../../vendor/awcodes/filament-table-repeater/resources/css/plugin.css';
+
+@config 'tailwind.config.js';
+
+body {
+    @apply !bg-primary-50 dark:!bg-gray-950;
+}
+
+.fi-breadcrumbs .fi-breadcrumbs-item-label {
+    @apply text-xs;
+}
+
+.choices__item--selectable {
+    @apply cursor-pointer;
+}
+
+.fi-sidebar-header {
+    @apply bg-transparent ring-0 shadow-none !important;
+}
+
+.fi-sidebar-item-active a {
+    background-image: linear-gradient(
+        to bottom right,
+        rgba(var(--primary-500), 1),
+        rgba(var(--primary-900), 1)
+    );
+    box-shadow:
+        0 4px 6px -1px #0000001a,
+        0 2px 4px -2px #0000001a;
+}
+
+.fi-sidebar-item-active .fi-sidebar-item-label {
+    @apply text-white dark:text-white;
+}
+
+.fi-sidebar-item-active svg {
+    @apply text-white dark:text-white;
+}
+
+.fi-sidebar-item:not(.fi-sidebar-item-active) a {
+    @apply dark:text-gray-400 hover:bg-primary-100 dark:hover:bg-primary-800/50 dark:hover:text-white;
+}
+
+.fi-sidebar-item:not(.fi-sidebar-item-active):hover a svg {
+    @apply dark:text-white;
+}
+
+.fi-main-ctn {
+    @apply !h-screen;
+}
+
+.fi-topbar {
+    @apply relative;
+}
+
+.fi-topbar nav {
+    @apply bg-primary-50 dark:bg-gray-950 ring-0 shadow-none;
+}
+
+.fi-main {
+    @apply bg-white dark:bg-gray-800 ltr:rounded-tl-3xl rtl:rounded-tr-3xl shadow !max-w-full !overflow-y-auto flex-grow;
+}
+
+.fi-wi-stats-overview-stat {
+    @apply shadow-none ring-2 ring-primary-50 dark:!ring-gray-950 border border-primary-100 dark:border-gray-900;
+}
+
+.fi-section {
+    @apply ring-2 ring-primary-50 dark:!ring-gray-950 border border-primary-100 dark:border-gray-900 shadow-none;
+}
+
+.fi-fo-tabs {
+    @apply ring-2 ring-primary-50 dark:!ring-gray-950 border border-primary-100 dark:border-gray-900 shadow-none;
+}
+
+.fi-ta-ctn {
+    @apply ring-2 ring-primary-50 dark:!ring-gray-950 border border-primary-100 dark:border-gray-900 shadow-none;
+}
+
+.fi-btn-color-primary {
+    background-image: linear-gradient(
+        to bottom right,
+        rgba(var(--primary-500), 1),
+        rgba(var(--primary-900), 1)
+    );
+    box-shadow:
+        0 4px 6px -1px #0000001a,
+        0 2px 4px -2px #0000001a;
+}
+
+.bg-primary-700-gradient {
+    background-image: linear-gradient(
+        to bottom right,
+        rgba(var(--primary-300), 1),
+        rgba(var(--primary-700), 1)
+    );
+}
+
+.fi-btn-color-primary {
+    transition: 0.5s;
+    background-size: 200% auto;
+}
+
+.fi-btn-color-primary:hover {
+    background-position: right center; /* change the direction of the change here */
+    text-decoration: none;
+}
