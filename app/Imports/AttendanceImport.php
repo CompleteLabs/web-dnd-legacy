@@ -5,11 +5,10 @@ namespace App\Imports;
 use App\Models\Attendance;
 use App\Models\User;
 use Maatwebsite\Excel\Concerns\ToModel;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 
-class AttendanceImport implements ToModel, WithHeadingRow
+class AttendanceImport implements ToModel
 {
     private $usersCache = [];
     private $importedCount = 0;
@@ -34,29 +33,29 @@ class AttendanceImport implements ToModel, WithHeadingRow
         $userId = null;
 
         // Prioritaskan pencarian berdasarkan employee_id terlebih dahulu
-        if (!empty($row['id_karyawan']) && isset($this->usersCache[$row['id_karyawan']])) {
-            // Jika id_karyawan ada, cari berdasarkan employee_id
-            $userId = $this->usersCache[$row['id_karyawan']];
+        if (!empty($row[0]) && isset($this->usersCache[$row[0]])) {
+            // Jika id_karyawan ada (kolom 0), cari berdasarkan employee_id
+            $userId = $this->usersCache[$row[0]];
         }
 
         // Jika tidak ditemukan berdasarkan id_karyawan, coba cari berdasarkan nama_lengkap
-        if (is_null($userId) && !empty($row['nama_lengkap']) && isset($this->usersCache[$row['nama_lengkap']])) {
-            // Jika nama_lengkap ada, cari berdasarkan nama_lengkap
-            $userId = $this->usersCache[$row['nama_lengkap']];
+        if (is_null($userId) && !empty($row[1]) && isset($this->usersCache[$row[1]])) {
+            // Jika nama_lengkap ada (kolom 1), cari berdasarkan nama_lengkap
+            $userId = $this->usersCache[$row[1]];
         }
 
         // Proses periode
         $periode = null;
 
         try {
-            if (is_numeric($row['periode'])) {
-                $periode = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($row['periode'])->format('Y-m');
-            } elseif (\DateTime::createFromFormat('Y-m', $row['periode']) !== false) {
-                $periode = \DateTime::createFromFormat('Y-m', $row['periode'])->format('Y-m');
-            } elseif (\DateTime::createFromFormat('d/m/y', $row['periode']) !== false) {
-                $periode = \DateTime::createFromFormat('d/m/y', $row['periode'])->format('Y-m');
+            if (is_numeric($row[2])) {
+                $periode = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($row[2])->format('Y-m');
+            } elseif (\DateTime::createFromFormat('Y-m', $row[2]) !== false) {
+                $periode = \DateTime::createFromFormat('Y-m', $row[2])->format('Y-m');
+            } elseif (\DateTime::createFromFormat('d/m/y', $row[2]) !== false) {
+                $periode = \DateTime::createFromFormat('d/m/y', $row[2])->format('Y-m');
             } else {
-                Log::error("Format Periode tidak dikenali: " . $row['periode']);
+                Log::error("Format Periode tidak dikenali: " . $row[2]);
             }
         } catch (\Exception $e) {
             Log::error("Kesalahan saat parsing Periode: " . $e->getMessage());
@@ -74,8 +73,8 @@ class AttendanceImport implements ToModel, WithHeadingRow
 
                 // Simpan detail data yang dilewati
                 $this->skippedDetails[] = [
-                    'nama_lengkap' => $row['nama_lengkap'],
-                    'employee_id' => $row['id_karyawan'],
+                    'nama_lengkap' => $row[1],
+                    'employee_id' => $row[0],
                     'periode' => $periode,
                 ];
 
@@ -87,20 +86,20 @@ class AttendanceImport implements ToModel, WithHeadingRow
             return new Attendance([
                 'user_id' => $userId,
                 'periode' => $periode,
-                'work_days' => $row['hari_kerja'] ?? 0,
-                'late_less_30' => $row['late_less_30_min'] ?? 0,
-                'late_more_30' => $row['late_more_30_min'] ?? 0,
-                'sick_days' => $row['sakit_or_izin'] ?? 0,
+                'work_days' => $row[3] ?? 0,
+                'late_less_30' => $row[4] ?? 0,
+                'late_more_30' => $row[5] ?? 0,
+                'sick_days' => $row[6] ?? 0,
             ]);
         }
 
-        Log::error('Import Attendance: Pengguna tidak ditemukan atau gagal parsing Periode untuk nama_lengkap ' . $row['nama_lengkap'] . ' atau id_karyawan ' . $row['id_karyawan']);
+        Log::error('Import Attendance: Pengguna tidak ditemukan atau gagal parsing Periode untuk nama_lengkap ' . $row[1] . ' atau id_karyawan ' . $row[0]);
 
         // Simpan detail data yang dilewati jika pengguna tidak ditemukan atau periode tidak valid
         $this->skippedDetails[] = [
-            'nama_lengkap' => $row['nama_lengkap'],
-            'employee_id' => $row['id_karyawan'],
-            'periode' => $row['periode'] ?? 'Tidak diketahui',
+            'nama_lengkap' => $row[1],
+            'employee_id' => $row[0],
+            'periode' => $row[2] ?? 'Tidak diketahui',
         ];
 
         $this->skippedCount++;
