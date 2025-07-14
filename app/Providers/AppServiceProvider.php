@@ -23,6 +23,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        //
+        // Register observers for cache management
+        \App\Models\KpiDescription::observe(\App\Observers\KpiDescriptionObserver::class);
+        \App\Models\KpiCategory::observe(\App\Observers\KpiCategoryObserver::class);
     }
 }

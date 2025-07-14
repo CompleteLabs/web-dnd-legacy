@@ -9,6 +9,7 @@ use App\Models\KpiCategory;
 use App\Models\KpiDescription;
 use App\Models\Position;
 use App\Models\User;
+use App\Services\KpiCacheService;
 use Awcodes\TableRepeater\Components\TableRepeater;
 use Awcodes\TableRepeater\Header;
 use Filament\Forms;
@@ -28,7 +29,9 @@ use Filament\Tables;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class KpiResource extends Resource
 {
@@ -60,34 +63,7 @@ class KpiResource extends Resource
                         Forms\Components\Select::make('position_id')
                             ->label('Job Position')
                             ->options(function () {
-                                $user = auth()->user();
-                                $query = Position::query();
-
-                                // Filter positions by user's role
-                                if ($user->role_id == 5 && $user->divisi_id == 3) {
-                                    // BU VEGA
-                                    $query->whereHas('user', function ($q) use ($user) {
-                                        $q->whereIn('role_id', [4, 5, 3, 2])
-                                            ->where('divisi_id', $user->divisi_id);
-                                    });
-                                } elseif ($user->role_id == 5 && $user->divisi_id != 3) {
-                                    // MANAGER
-                                    $query->whereHas('user', function ($q) use ($user) {
-                                        $q->whereIn('role_id', [4, 5])
-                                            ->where('divisi_id', $user->divisi_id);
-                                    });
-                                } elseif ($user->role_id == 4) {
-                                    // COORDINATOR
-                                    $query->whereHas('user', function ($q) use ($user) {
-                                        $q->whereIn('role_id', [4, 3, 2])
-                                            ->where('divisi_id', $user->divisi_id);
-                                    });
-                                }
-
-                                return $query->get()->mapWithKeys(function ($position) {
-                                    $userNames = $position->user->pluck('nama_lengkap')->implode(', ');
-                                    return [$position->id => "{$position->name} - {$userNames}"];
-                                });
+                                return KpiCacheService::getPositionsForUser();
                             })
                             ->searchable()
                             ->required(),
@@ -140,8 +116,7 @@ class KpiResource extends Resource
                                             ->label('KPI Description')
                                             ->searchable()
                                             ->options(function () {
-                                                return KpiDescription::where('kpi_category_id', 3)
-                                                    ->pluck('description', 'id');
+                                                return KpiCacheService::getKpiDescriptionsByCategory(3);
                                             })
                                             ->createOptionForm([
                                                 Forms\Components\TextInput::make('description')
@@ -237,8 +212,7 @@ class KpiResource extends Resource
                                             ->label('KPI Description')
                                             ->searchable()
                                             ->options(function () {
-                                                return KpiDescription::where('kpi_category_id', 1)
-                                                    ->pluck('description', 'id');
+                                                return KpiCacheService::getKpiDescriptionsByCategory(1);
                                             })
                                             ->createOptionForm([
                                                 Forms\Components\TextInput::make('description')
@@ -334,8 +308,7 @@ class KpiResource extends Resource
                                             ->label('KPI Description')
                                             ->searchable()
                                             ->options(function () {
-                                                return KpiDescription::where('kpi_category_id', 2)
-                                                    ->pluck('description', 'id');
+                                                return KpiCacheService::getKpiDescriptionsByCategory(2);
                                             })
                                             ->createOptionForm([
                                                 Forms\Components\TextInput::make('description')
@@ -408,9 +381,15 @@ class KpiResource extends Resource
                 Section::make()
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->preload()
                             ->searchable()
-                            ->relationship('user', 'nama_lengkap')
+                            ->getSearchResultsUsing(fn (string $search) =>
+                                User::where('nama_lengkap', 'like', "%{$search}%")
+                                    ->limit(50)
+                                    ->pluck('nama_lengkap', 'id')
+                            )
+                            ->getOptionLabelUsing(fn ($value): ?string =>
+                                User::find($value)?->nama_lengkap
+                            )
                             ->required()
                             ->disabled(),
                         Forms\Components\DatePicker::make('date')
@@ -425,9 +404,9 @@ class KpiResource extends Resource
                     ->schema([
                         Select::make('kpi_category_id')
                             ->label('KPI Category')
-                            ->options(
-                                KpiCategory::pluck('name', 'id')
-                            )
+                            ->options(function () {
+                                return KpiCacheService::getKpiCategories();
+                            })
                             ->disabled(),
                         TextInput::make('percentage')
                             ->label('Percentage %')
@@ -455,16 +434,23 @@ class KpiResource extends Resource
                             ->schema([
                                 Select::make('kpi_description_id')
                                     ->label('KPI Description')
-                                    ->preload()
                                     ->searchable()
-                                    ->relationship('kpi_description', 'description')
+                                    ->getSearchResultsUsing(fn (string $search) =>
+                                        KpiDescription::where('description', 'like', "%{$search}%")
+                                            ->limit(50)
+                                            ->pluck('description', 'id')
+                                    )
+                                    ->getOptionLabelUsing(fn ($value): ?string =>
+                                        KpiDescription::find($value)?->description
+                                    )
                                     ->createOptionForm([
                                         Forms\Components\TextInput::make('description')
                                             ->required(),
                                         Forms\Components\Select::make('kpi_category_id')
-                                            ->preload()
                                             ->searchable()
-                                            ->relationship('kpi_category', 'name')
+                                            ->options(function () {
+                                                return KpiCacheService::getKpiCategories();
+                                            })
                                             ->required(),
                                     ])
                                     ->required(),
@@ -490,60 +476,59 @@ class KpiResource extends Resource
                                     ->required(fn(callable $get) => $get('count_type') === 'RESULT')
                                     ->disabled(fn(callable $get) => $get('count_type') !== 'RESULT'),
                                 Forms\Components\Actions::make([
-                                    Forms\Components\Actions\Action::make('manage_subtasks')
-                                        ->hiddenLabel()
-                                        ->icon('heroicon-o-clipboard-document-list')
-                                        ->color('primary')
-                                        ->size('sm')
-                                        ->modalWidth('lg')
-                                        ->modalHeading('Manage Subtasks')
-                                        ->form([
-                                            Hidden::make('kpi_detail_id'),
-                                            Repeater::make('subtasks')
-                                                ->schema([
-                                                    TextInput::make('description')
-                                                        ->label('Subtask')
-                                                        ->required()
-                                                        ->columnSpanFull(),
+                                            Forms\Components\Actions\Action::make('manage_subtasks')
+                                                ->hiddenLabel()
+                                                ->icon('heroicon-o-clipboard-document-list')
+                                                ->color('primary')
+                                                ->size('sm')
+                                                ->modalWidth('lg')
+                                                ->modalHeading('Manage Subtasks')
+                                                ->form([
+                                                    Hidden::make('kpi_detail_id'),
+                                                    Repeater::make('subtasks')
+                                                        ->schema([
+                                                            TextInput::make('description')
+                                                                ->label('Subtask')
+                                                                ->required()
+                                                                ->columnSpanFull(),
+                                                        ])
+                                                        ->columnSpanFull()
+                                                        ->columns(1)
+                                                        ->addActionLabel('Add Subtask')
+                                                        ->itemLabel(fn (array $state): ?string =>
+                                                            $state['description'] ?? 'New Subtask')
+                                                        ->defaultItems(0)
+                                                        ->reorderable()
+                                                        ->lazy()
                                                 ])
-                                                ->columnSpanFull()
-                                                ->columns(1)
-                                                ->addActionLabel('Add Subtask')
-                                                ->itemLabel(fn (array $state): ?string =>
-                                                    $state['description'] ?? 'New Subtask')
-                                                ->defaultItems(0)
-                                                ->reorderable()
-                                        ])
-                                        ->fillForm(function ($record) {
-                                            // Ensure subtasks is always an array
-                                            $subtasks = [];
+                                                ->fillForm(function ($record) {
+                                                    $subtasks = [];
 
-                                            if (isset($record->subtasks)) {
-                                                if (is_string($record->subtasks)) {
-                                                    // If it's a JSON string, decode it
-                                                    try {
-                                                        $decoded = json_decode($record->subtasks, true);
-                                                        if (is_array($decoded)) {
-                                                            $subtasks = $decoded;
+                                                    if (isset($record->subtasks)) {
+                                                        if (is_string($record->subtasks)) {
+                                                            try {
+                                                                $decoded = json_decode($record->subtasks, true);
+                                                                if (is_array($decoded)) {
+                                                                    $subtasks = $decoded;
+                                                                }
+                                                            } catch (\Exception $e) {
+                                                                // If decoding fails, use empty array
+                                                            }
+                                                        } elseif (is_array($record->subtasks)) {
+                                                            $subtasks = $record->subtasks;
                                                         }
-                                                    } catch (\Exception $e) {
-                                                        // If decoding fails, use empty array
                                                     }
-                                                } elseif (is_array($record->subtasks)) {
-                                                    $subtasks = $record->subtasks;
-                                                }
-                                            }
 
-                                            return [
-                                                'kpi_detail_id' => $record->id,
-                                                'subtasks' => $subtasks,
-                                            ];
-                                        })
-                                        ->action(function (array $data, $record) {
-                                            $record->subtasks = $data['subtasks'] ?? [];
-                                            $record->save();
-                                        }),
-                                ]),
+                                                    return [
+                                                        'kpi_detail_id' => $record->id,
+                                                        'subtasks' => $subtasks,
+                                                    ];
+                                                })
+                                                ->action(function (array $data, $record) {
+                                                    $record->subtasks = $data['subtasks'] ?? [];
+                                                    $record->save();
+                                                }),
+                                        ]),
                             ])
                             ->columnSpan('full'),
                     ])
@@ -576,6 +561,8 @@ class KpiResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->deferLoading()
+            ->paginationPageOptions([10, 25, 50, 100])
+            ->defaultPaginationPageOption(25)
             ->filters([])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -606,20 +593,26 @@ class KpiResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()
+            ->with([
+                'user.position',
+                'kpi_category',
+                'kpi_type',
+                'kpi_detail.kpi_description'
+            ]);
 
-        $user = auth()->user();
+        $user = Auth::user();
         $role = $user->role?->name;
 
         if ($role === 'ADMIN') {
             return $query;
         } elseif ($role === 'MANAGER') {
             return $query->whereHas('user', function ($query) {
-                $query->where('divisi_id', auth()->user()->divisi_id);
+                $query->where('divisi_id', Auth::user()->divisi_id);
             });
         } else {
             return $query->whereHas('user', function ($query) {
-                $query->where('approval_id', auth()->id());
+                $query->where('approval_id', Auth::id());
             });
         }
     }

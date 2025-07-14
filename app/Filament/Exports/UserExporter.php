@@ -23,7 +23,7 @@ class UserExporter extends Exporter
             ExportColumn::make('divisi.name'),
             ExportColumn::make('role.name'),
             ExportColumn::make('position.name'),
-            ExportColumn::make('approval.name'),
+            ExportColumn::make('approval.nama_lengkap'),
             ExportColumn::make('created_at'),
             ExportColumn::make('updated_at'),
         ];
