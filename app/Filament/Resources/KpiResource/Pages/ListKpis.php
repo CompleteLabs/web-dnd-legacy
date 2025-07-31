@@ -128,6 +128,7 @@ class ListKpis extends ListRecords
                                 Select::make('source_users')
                                     ->label('Copy dari User')
                                     ->searchable()
+                                    ->multiple()
                                     ->preload()
                                     ->options(function (): array {
                                         $options = [];
